@@ -3,7 +3,6 @@ import java.io.BufferedWriter;
 import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.IOException;
-import java.io.InputStreamReader;
 import java.io.PrintWriter;
 import java.util.Comparator;
 import java.util.HashMap;
@@ -11,6 +10,7 @@ import java.util.Iterator;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.PriorityQueue;
+import java.util.Scanner;
 import java.util.Set;
 
 /**
@@ -36,8 +36,12 @@ public final class TagCloud {
         public int compare(Entry<String, Integer> o1,
                 Entry<String, Integer> o2) {
 
-            //TODO make sure it works like equals
-            return o1.getKey().compareToIgnoreCase(o2.getKey());
+            int ans = 0;
+
+            if (!(o1.equals(o2))) {
+                ans = o1.getKey().compareToIgnoreCase(o2.getKey());
+            }
+            return ans;
         }
 
     }
@@ -52,8 +56,13 @@ public final class TagCloud {
         public int compare(Entry<String, Integer> o1,
                 Entry<String, Integer> o2) {
 
-            //TODO make sure it works like equals
-            return o2.getValue().compareTo(o1.getValue());
+            int ans = 0;
+
+            if (!(o1.equals(o2))) {
+                ans = o2.getValue().compareTo(o1.getValue());
+            }
+            return ans;
+
         }
 
     }
@@ -115,13 +124,18 @@ public final class TagCloud {
     /**
      *
      * @param inFile
+     *            the file being read from.
      * @param wordMap
+     *            a map with the words, key, and the amount of times it appears,
+     *            value.
      * @param wordSortVal
+     *
      */
     public static void loadMapAndQueue(BufferedReader inFile,
             Map<String, Integer> wordMap,
             PriorityQueue<Entry<String, Integer>> wordSortVal) {
 
+        //Read File
         try {
             String input;
             while ((input = inFile.readLine()) != null) {
@@ -161,6 +175,7 @@ public final class TagCloud {
 
         } catch (IOException e) {
             System.err.println("Error Reading File in LoadMapAndQueue.");
+            return;
 
         }
     }
@@ -169,16 +184,16 @@ public final class TagCloud {
      *
      * @param size
      *            the amount of words that the user want on the tag cloud.
-     * @param wordKeyMachine
+     * @param wordKeySort
      *            sorted Map.Pair<String, Integer> by Key, alphabetically, in a
      *            Sorting Machine.
-     * @param wordValMachine
+     * @param wordValueSort
      *            sorted Map.Pair<String, Integer> by Value, number, in a
      *            SortingMachine.
      *
-     * @updates wordKeyMachine
+     * @updates wordKeySort
      *
-     * @updates wordValMachine
+     * @updates wordValSort
      *
      * @return return a Map with the appropriate font size for each key.
      *
@@ -190,13 +205,19 @@ public final class TagCloud {
         Map<String, Integer> keyFontSize = new HashMap<>();
         final int maxFont = 48;
         final int minFont = 11;
+        final int defaultFont = 20;
 
         Entry<String, Integer> pair = wordValueSort.poll();
-        int mostCount = pair.getValue();
+        int mostCount = 0;
+
+        if (!(wordValueSort.size() == 0)) {
+            mostCount = pair.getValue();
+            wordKeySort.add(pair);
+        }
+
         int minCount = 0;
 
-        wordKeySort.add(pair);
-        //Generate wordValMachine
+        //Generate wordValSort
         for (int i = 1; i < size; i++) {
             pair = wordValueSort.poll();
             wordKeySort.add(pair);
@@ -207,14 +228,94 @@ public final class TagCloud {
         }
 
         for (Entry<String, Integer> pair2 : wordKeySort) {
-            int fontSize = (((maxFont - minFont)
-                    * (pair2.getValue() - minCount)) / (mostCount - minCount))
-                    + minFont;
+            int fontSize = defaultFont;
+            if (!(mostCount == minCount)) {
+                fontSize = (((maxFont - minFont)
+                        * (pair2.getValue() - minCount))
+                        / (mostCount - minCount)) + minFont;
+            }
 
             keyFontSize.put(pair2.getKey(), fontSize);
         }
 
         return keyFontSize;
+    }
+
+    /**
+     *
+     * @param out
+     *            SimpleWriter. For writing the output file.
+     * @param count
+     *            The amount of words to be display in the tag cloud.
+     * @param fileLocation
+     *            The location of the input file.
+     *
+     * @ensures the correct HTML head tag be written in the output file.
+     *
+     */
+    public static void createHead(PrintWriter out, int count,
+            String fileLocation) {
+        out.println("<html>");
+        out.println("<head>");
+        out.println("<title>Top " + count + " words in " + fileLocation
+                + "</title>");
+
+        ////One Link
+        out.print(
+                "<link href=\"http://web.cse.ohio-state.edu/software/2231/web-sw2/");
+        out.print(
+                "assignments/projects/tag-cloud-generator/data/tagcloud.css\"");
+        out.println(" rel=\"stylesheet\" type=\"text/css\">");
+        ////
+
+        out.println(
+                "<link href=\"tagcloud.css\" rel=\"stylesheet\" type=\"text/css\">");
+        out.println("</head>");
+    }
+
+    /**
+     *
+     * @param out
+     *            SimpleWriter. For writing the output file.
+     * @param count
+     *            The amount of words to be display in the tag cloud.
+     * @param fileLocation
+     *            The location of the input file.
+     * @param wordKeySort
+     *            Sorted alphabetically of Entry<String, Integer> by key.
+     * @param keyFontSize
+     *            A Map with the appropriate font size for each key.
+     *
+     * @updates wordKeySort
+     *
+     * @ensures The correct HTML body tag and it contents be written in the
+     *          output file.
+     */
+    public static void createBody(PrintWriter out, int count,
+            String fileLocation,
+            PriorityQueue<Entry<String, Integer>> wordKeySort,
+            Map<String, Integer> keyFontSize) {
+
+        out.println("<body>");
+        out.println("<h2>Top " + count + " words in " + fileLocation + "</h2>");
+        out.println("<hr>");
+        out.println("<div class=\"cdiv\">");
+        out.println("<p class=\"cbox\">");
+
+        for (int i = 0; i < count; i++) {
+            Entry<String, Integer> wordPair = wordKeySort.poll();
+            String title = " title=\"count: " + wordPair.getValue() + "\"";
+            String cssClass = "class=\"" + "f"
+                    + keyFontSize.get(wordPair.getKey()) + "\"";
+            out.println("<span style=\"cursor:default\" " + cssClass + title
+                    + ">" + wordPair.getKey() + "</span>");
+        }
+
+        out.println("</p>");
+        out.println("</div>");
+        out.println("</body>");
+        out.println("</html>");
+
     }
 
     /**
@@ -224,8 +325,8 @@ public final class TagCloud {
      *            the command line arguments
      */
     public static void main(String[] args) {
-        BufferedReader in = new BufferedReader(
-                new InputStreamReader(System.in));
+        Scanner in = new Scanner(System.in);
+
         BufferedReader inFile;
         PrintWriter outFile;
 
@@ -233,37 +334,23 @@ public final class TagCloud {
 
         // Open File
         try {
+
             System.out.print("Input File Location: ");
-            fileLocation = in.readLine();
+            fileLocation = in.nextLine();
 
             inFile = new BufferedReader(new FileReader(fileLocation));
 
         } catch (IOException e) {
             System.err.println("Error Opening File.");
+            in.close();
             return;
         }
 
-        //Read File, Open and Close Writer.
         try {
+
             System.out.print("Output File Location: ");
-
             outFile = new PrintWriter(
-                    new BufferedWriter(new FileWriter(in.readLine())));
-
-            System.out.print("Number of Words: ");
-            String wordStrCount = in.readLine();
-
-            //TODO issue here
-            int wordCount = 0;
-            if (!(wordStrCount == null)) {
-                wordCount = Integer.parseInt(wordStrCount);
-            } else {
-                System.err.println("Invalid Number");
-                in.close();
-                inFile.close();
-                outFile.close();
-                return;
-            }
+                    new BufferedWriter(new FileWriter(in.nextLine())));
 
             Map<String, Integer> wordMap = new HashMap<>();
 
@@ -278,28 +365,40 @@ public final class TagCloud {
             //add words to the map and the sorting machine
             loadMapAndQueue(inFile, wordMap, wordValSort);
 
+            //Close In File.
+            inFile.close();
+
+            //Check if count is greater than the number of words.
+            System.out
+                    .println("Enter a number from 0 to " + wordValSort.size());
+            System.out.print("Number of Words: ");
+
+            int wordCount = in.nextInt();
+            while (wordCount < 0 || wordCount > wordValSort.size()) {
+                System.out.println("Dude Read");
+                System.out.print("Number of Words: ");
+                wordCount = in.nextInt();
+            }
+
+            //Close Scanner.
+            in.close();
+
             //generate font proportion to the count of the word
             Map<String, Integer> keyFontSize = createwordKeyMachine(wordCount,
                     wordKeySort, wordValSort);
 
             //output the head in the html page
-            HTMLGen.createHead(outFile, wordCount, fileLocation);
-            HTMLGen.createBody(outFile, wordCount, fileLocation, wordKeySort,
-                    keyFontSize);
+            createHead(outFile, wordCount, fileLocation);
 
             //output the body in the html page
+            createBody(outFile, wordCount, fileLocation, wordKeySort,
+                    keyFontSize);
+
+            System.out.println("File Created");
 
             outFile.close();
         } catch (IOException e) {
-            System.err.println("Error Reading File.");
-        }
-
-        //Close File
-        try {
-            in.close();
-            inFile.close();
-        } catch (IOException e) {
-            System.err.println("Error Close File.");
+            System.err.println("Error Closing File.");
         }
 
     }
