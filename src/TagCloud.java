@@ -17,6 +17,8 @@ import java.util.Set;
  * Generate HTML tag cloud. Using standard java libraries.
  *
  * @author Bill Yang
+ * @author Pengyu Chen
+ * @author Wei Luo
  *
  */
 public final class TagCloud {
@@ -36,10 +38,10 @@ public final class TagCloud {
         public int compare(Entry<String, Integer> o1,
                 Entry<String, Integer> o2) {
 
-            int ans = 0;
+            int ans = o1.getKey().compareToIgnoreCase(o2.getKey());
 
-            if (!(o1.equals(o2))) {
-                ans = o1.getKey().compareToIgnoreCase(o2.getKey());
+            if (ans == 0) {
+                ans = o1.getValue().compareTo(o2.getValue());
             }
             return ans;
         }
@@ -56,10 +58,11 @@ public final class TagCloud {
         public int compare(Entry<String, Integer> o1,
                 Entry<String, Integer> o2) {
 
-            int ans = 0;
+            int ans = o2.getValue().compareTo(o1.getValue());
 
-            if (!(o1.equals(o2))) {
-                ans = o2.getValue().compareTo(o1.getValue());
+            if (ans == 0) {
+                ans = o1.getKey().compareToIgnoreCase(o2.getKey());
+
             }
             return ans;
 
@@ -326,11 +329,20 @@ public final class TagCloud {
      */
     public static void main(String[] args) {
         Scanner in = new Scanner(System.in);
-
         BufferedReader inFile;
         PrintWriter outFile;
 
         String fileLocation;
+
+        Map<String, Integer> wordMap = new HashMap<>();
+
+        Comparator<Entry<String, Integer>> ck = new KeySort();
+        Comparator<Entry<String, Integer>> cv = new ValueSort();
+
+        PriorityQueue<Entry<String, Integer>> wordKeySort = new PriorityQueue<>(
+                ck);
+        PriorityQueue<Entry<String, Integer>> wordValSort = new PriorityQueue<>(
+                cv);
 
         // Open File
         try {
@@ -346,60 +358,75 @@ public final class TagCloud {
             return;
         }
 
-        try {
+        //add words to the map and the sorting machine
+        loadMapAndQueue(inFile, wordMap, wordValSort);
 
+        //Close In File.
+        try {
+            inFile.close();
+        } catch (IOException e1) {
+            System.err.println("Error Closing File");
+            in.close();
+            return;
+        }
+
+        try {
             System.out.print("Output File Location: ");
             outFile = new PrintWriter(
                     new BufferedWriter(new FileWriter(in.nextLine())));
+        } catch (IOException e) {
+            System.out.println("Error Opening Writer");
+            in.close();
+            return;
+        }
 
-            Map<String, Integer> wordMap = new HashMap<>();
+        //Check if count is greater than the number of words.
+        System.out.println("Enter a number from 0 to " + wordValSort.size());
+        System.out.print("Number of Words: ");
 
-            Comparator<Entry<String, Integer>> ck = new KeySort();
-            Comparator<Entry<String, Integer>> cv = new ValueSort();
+        boolean state = in.hasNextInt();
+        int wordCount = -1;
+        if (state) {
+            wordCount = in.nextInt();
+        }
 
-            PriorityQueue<Entry<String, Integer>> wordKeySort = new PriorityQueue<>(
-                    ck);
-            PriorityQueue<Entry<String, Integer>> wordValSort = new PriorityQueue<>(
-                    cv);
-
-            //add words to the map and the sorting machine
-            loadMapAndQueue(inFile, wordMap, wordValSort);
-
-            //Close In File.
-            inFile.close();
-
-            //Check if count is greater than the number of words.
-            System.out
-                    .println("Enter a number from 0 to " + wordValSort.size());
-            System.out.print("Number of Words: ");
-
-            int wordCount = in.nextInt();
-            while (wordCount < 0 || wordCount > wordValSort.size()) {
-                System.out.println("Dude Read");
+        while (wordCount < 0 || wordCount > wordValSort.size() || !state) {
+            if (!state) {
+                in.next();
+                System.out.println("Not a number!");
                 System.out.print("Number of Words: ");
+                state = in.hasNextInt();
+
+            } else {
+                System.out.println("Outside of Range.");
+                System.out.print("Number of Words: ");
+                state = in.hasNextInt();
+
+            }
+
+            if (state) {
                 wordCount = in.nextInt();
             }
 
-            //Close Scanner.
-            in.close();
-
-            //generate font proportion to the count of the word
-            Map<String, Integer> keyFontSize = createwordKeyMachine(wordCount,
-                    wordKeySort, wordValSort);
-
-            //output the head in the html page
-            createHead(outFile, wordCount, fileLocation);
-
-            //output the body in the html page
-            createBody(outFile, wordCount, fileLocation, wordKeySort,
-                    keyFontSize);
-
-            System.out.println("File Created");
-
-            outFile.close();
-        } catch (IOException e) {
-            System.err.println("Error Closing File.");
         }
+
+        //Close Scanner.
+        in.close();
+
+        //generate font proportion to the count of the word
+        Map<String, Integer> keyFontSize = createwordKeyMachine(wordCount,
+                wordKeySort, wordValSort);
+
+        //output the head in the html page
+        createHead(outFile, wordCount, fileLocation);
+
+        //output the body in the html page
+        createBody(outFile, wordCount, fileLocation, wordKeySort, keyFontSize);
+
+        System.out.println("File Created");
+
+        //Close Writer
+        outFile.close();
 
     }
 
